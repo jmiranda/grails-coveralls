@@ -17,12 +17,16 @@ class JobsAPI {
         this.eventListener = eventListener
     }
 
-    def create(String serviceName, String serviceJobId, String repoToken, List sourceReports) {
+    def create(String serviceName, String serviceJobId, String repoToken, List sourceReports, String branch, String commit, String username, String buildNumber) {
         Report report = new Report(
                 service_name: serviceName,
                 service_job_id: serviceJobId,
                 repo_token: repoToken,
-                source_files: sourceReports
+                source_files: sourceReports,
+                commit: commit,
+                username: username,
+                service_number: buildNumber,
+                branch: branch
         )
         String json = report.toJson()
 

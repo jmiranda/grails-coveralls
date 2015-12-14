@@ -27,11 +27,29 @@ target(coveralls: "Create coverage report and post it to Coveralls.io") {
     String repoToken = argsMap['token'] ?: coverallsConfig?.token ?: System.getenv('COVERALLS_REPO_TOKEN')
     String serviceName = argsMap['service'] ?: coverallsConfig?.service ?: ''
     def serviceJobId
+    String branch
+    String username
+    String commit
+    String buildNumber
+    String pullRequest
 
     if (System.getenv('TRAVIS') == 'true' && System.getenv('TRAVIS_JOB_ID') != null) {
         serviceName = repoToken ? 'travis-pro' : 'travis-ci'
         serviceJobId = System.getenv('TRAVIS_JOB_ID')
-    } else if (repoToken) {
+    }
+    else if (System.getenv("CIRCLECI") == 'true') {
+        serviceName = 'circleci';
+        serviceJobId = System.getenv("CIRCLE_BUILD_NUM");
+        if(System.getenv("CI_PULL_REQUEST")) {
+            def pr = System.getenv("CI_PULL_REQUEST").split("/pull/");
+            pullRequest = pr[1];
+        }
+        commit = System.getenv("CIRCLE_SHA1");
+        branch = System.getenv("CIRCLE_BRANCH");
+        buildNumber = System.getenv("CIRCLE_BUILD_NUM");
+        username = System.getenv("CIRCLE_USERNAME")
+    }
+    else if (repoToken) {
         // RepoToken is required for CI service
         serviceName = 'other'
     }
@@ -62,7 +80,7 @@ target(coveralls: "Create coverage report and post it to Coveralls.io") {
     }
 
     def jobsAPI = classLoader.loadClass('grails.plugin.coveralls.api.JobsAPI').newInstance(eventListener)
-    def success = jobsAPI.create(serviceName, serviceJobId, repoToken, sourceReports)
+    def success = jobsAPI.create(serviceName, serviceJobId, repoToken, sourceReports, branch, commit, username, buildNumber)
     if (!success) {
         exit 1
     }
