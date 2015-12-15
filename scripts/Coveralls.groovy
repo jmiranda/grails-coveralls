@@ -54,6 +54,8 @@ target(coveralls: "Create coverage report and post it to Coveralls.io") {
         serviceName = 'other'
     }
 
+    println ("Using ${serviceName} service with arguments: " + [serviceJobId:serviceJobId, commit:commit, branch:branch, buildNumber:buildNumber, username:username])
+
     if (!serviceName) {
         event("StatusError", ["No available CI service, use 'grails help coveralls' to show usage."])
         exit 1
