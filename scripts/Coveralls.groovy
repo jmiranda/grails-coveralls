@@ -27,12 +27,17 @@ target(coveralls: "Create coverage report and post it to Coveralls.io") {
     String repoToken = argsMap['token'] ?: coverallsConfig?.token ?: System.getenv('COVERALLS_REPO_TOKEN')
     String serviceName = argsMap['service'] ?: coverallsConfig?.service ?: ''
     def serviceJobId
-    String branch
-    String username
-    String commit
-    String buildNumber
-    String pullRequest
 
+    // Gather git data to be used by default in case the continuous integration service does not provide a value
+    def gitData = [
+        commit: executeCommandLine("git log -1 --pretty=format:'%H'"),
+        authorName: executeCommandLine("git log -1 --pretty=format:'%aN'"),
+        authorEmail: executeCommandLine("git log -1 --pretty=format:'%ae'"),
+        committerName: executeCommandLine("git log -1 --pretty=format:'%cN'"),
+        committerEmail: executeCommandLine("git log -1 --pretty=format:'%ce'"),
+        message: executeCommandLine("git log -1 --pretty=format:'%s'"),
+        branch: executeCommandLine("git rev-parse --abbrev-ref HEAD")
+    ]
     if (System.getenv('TRAVIS') == 'true' && System.getenv('TRAVIS_JOB_ID') != null) {
         serviceName = repoToken ? 'travis-pro' : 'travis-ci'
         serviceJobId = System.getenv('TRAVIS_JOB_ID')
@@ -40,21 +45,23 @@ target(coveralls: "Create coverage report and post it to Coveralls.io") {
     else if (System.getenv("CIRCLECI") == 'true') {
         serviceName = 'circleci';
         serviceJobId = System.getenv("CIRCLE_BUILD_NUM");
-        if(System.getenv("CI_PULL_REQUEST")) {
-            def pr = System.getenv("CI_PULL_REQUEST").split("/pull/");
-            pullRequest = pr[1];
-        }
-        commit = System.getenv("CIRCLE_SHA1");
-        branch = System.getenv("CIRCLE_BRANCH");
-        buildNumber = System.getenv("CIRCLE_BUILD_NUM");
-        username = System.getenv("CIRCLE_USERNAME")
+//        if(System.getenv("CI_PULL_REQUEST")) {
+//            def pr = System.getenv("CI_PULL_REQUEST").split("/pull/");
+//            pullRequest = pr[1];
+//        }
+
+        if (!gitData.commit) gitData.commit = System.getenv("CIRCLE_SHA1");
+        if (!gitData.branch) gitData.branch = System.getenv("CIRCLE_BRANCH");
+        if (!gitData.buildNumber)gitData.buildNumber = System.getenv("CIRCLE_BUILD_NUM");
+        if (!gitData.username) gitData.username = System.getenv("CIRCLE_USERNAME")
+
     }
     else if (repoToken) {
         // RepoToken is required for CI service
         serviceName = 'other'
     }
 
-    println ("Using ${serviceName} service with arguments: " + [serviceJobId:serviceJobId, commit:commit, branch:branch, buildNumber:buildNumber, username:username])
+    println ("Using ${serviceName} service with arguments: " + [serviceJobId:serviceJobId, gitData:gitData])
 
     if (!serviceName) {
         event("StatusError", ["No available CI service, use 'grails help coveralls' to show usage."])
@@ -82,7 +89,7 @@ target(coveralls: "Create coverage report and post it to Coveralls.io") {
     }
 
     def jobsAPI = classLoader.loadClass('grails.plugin.coveralls.api.JobsAPI').newInstance(eventListener)
-    def success = jobsAPI.create(serviceName, serviceJobId, repoToken, sourceReports, branch, commit, username, buildNumber)
+    def success = jobsAPI.create(serviceName, serviceJobId, repoToken, sourceReports, gitData)
     if (!success) {
         exit 1
     }
@@ -92,3 +99,16 @@ target(coveralls: "Create coverage report and post it to Coveralls.io") {
 }
 
 setDefaultTarget(coveralls)
+
+String executeCommandLine(String command) {
+    String output
+    if (command) {
+        try {
+            output = command.execute().text.trim()?.replace("'","")
+        } catch (Exception e) {
+            println("Error occurred attempting to execute command ${command}: " + e.message)
+            e.printStackTrace()
+        }
+    }
+    return output
+}

@@ -13,11 +13,8 @@ class Report {
     String service_number
 	String repo_token
 	List<SourceReport> source_files
+    Map gitData
 
-    // Git
-    String branch
-    String commit
-    String username
 
     public String toJson() {
         def map = [
@@ -28,17 +25,20 @@ class Report {
             source_files: source_files,
         ]
 
-        if (commit) {
+        if (gitData?.commit) {
             map.put ("git", [
                     head: [
-                            id: commit,
-                            committer_name: username
+                            id: gitData.commit,
+                            author_name: gitData.authorName,
+                            author_email: gitData.authorEmail,
+                            committer_name:gitData.committerName,
+                            committer_email: gitData.committerEmail,
+                            message: gitData.message
                     ],
-                    branch: branch
+                    branch: gitData.branch
                 ]
             )
         }
-
 
         JsonBuilder builder = new JsonBuilder(map)
 
